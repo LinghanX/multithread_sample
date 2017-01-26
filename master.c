@@ -19,9 +19,9 @@ int main(int argc, char *argv[])
 
     printf("worker number is %d\n", worker_num);
 
-    int pipes[worker_num][2];
+    int pipes[2];
     for(int i = 0; i < worker_num; i++){
-	if(pipe(pipes[i]) == -1){
+	if(pipe(pipes) == -1){
 	    perror("failed init pipe\n");
 	    exit(1);
 	};
@@ -43,8 +43,8 @@ int main(int argc, char *argv[])
 	    child_pids[i] = getpid();
 
 	    printf("my pid is: %d\n", child_pids[i]);
-	    int rs = dup2(pipes[i][0], STDIN_FILENO);
-	    int rs2 = dup2(pipes[i][1], STDOUT_FILENO);
+	    int rs = dup2(pipes[0], STDIN_FILENO);
+	    int rs2 = dup2(pipes[1], STDOUT_FILENO);
 	    if(rs < 0 || rs2 < 0)
 	    {
 		perror("dup failed\n");
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
     if(strcmp(mechanism, "sequential") == 0){
 	for(int i = 0; i < worker_num; i++){
 	    waitpid(child_pids[i], NULL, 0);
-	    read(pipes[i][0], &result, sizeof(double));
+	    read(pipes[0], &result, sizeof(double));
 	    sum += result;
 	}
     }
