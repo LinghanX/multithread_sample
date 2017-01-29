@@ -8,6 +8,7 @@
 #include <sys/select.h>
 #include <string.h>
 #include <poll.h>
+#include <sys/epoll.h>
 
 int main(int argc, char *argv[])
 {
@@ -124,6 +125,41 @@ int main(int argc, char *argv[])
 		}
 	    }
 	}
+    }
+
+    if(strcmp(mechanism, "epoll") == 0){
+	int retfd = epoll_create(1024); 
+	if(retfd < 0)
+	    perror("epoll\n");
+
+	struct epoll_event revents[12];
+
+	for(int i = 0; i < worker_num; i++){
+	    revents[i].events = EPOLLIN;
+	    revents[i].data.fd = pipes[i][0];
+	    int res = epoll_ctl(retfd, EPOLL_CTL_ADD, 
+		    pipes[i][0], &revents[i]);
+	}
+
+	int counter = 0;
+
+	while(counter != 12){
+	    int nfds = epoll_wait(retfd, revents, 1, 1);
+	    if(nfds < 0)
+		perror("epoll events\n");
+
+	    for(int i = 0; i < nfds; i++){
+		int fd = revents[i].data.fd;
+		printf("poll receives\n");
+		read(fd, &result, sizeof(double));
+		counter++;
+		sum += result;
+		printf("current sum is %f\n", sum);
+	    }
+	}
+
+	close(retfd);
+	printf("poll\n");
     }
 
     printf("The mechanism is %s\n", mechanism);
