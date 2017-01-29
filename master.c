@@ -19,9 +19,9 @@ int main(int argc, char *argv[])
 
     printf("worker number is %d\n", worker_num);
 
-    int pipes[2];
+    int pipes[worker_num][2];
     for(int i = 0; i < worker_num; i++){
-	if(pipe(pipes) == -1){
+	if(pipe(pipes[i]) == -1){
 	    perror("failed init pipe\n");
 	    exit(1);
 	};
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     pid_t child_pids[worker_num];
 
 
-    for(int i = 0; i < atoi(argv[8]); i++){
+    for(int i = 0; i < worker_num; i++){
 	printf("start creating pid %d\n", i);
 	cpid = fork();
 	if(cpid == -1){
@@ -42,9 +42,9 @@ int main(int argc, char *argv[])
 	    // child process
 	    child_pids[i] = getpid();
 
-	    printf("my pid is: %d\n", child_pids[i]);
-	    int rs = dup2(pipes[0], STDIN_FILENO);
-	    int rs2 = dup2(pipes[1], STDOUT_FILENO);
+	    printf("my pid is: %d, my worker no is %d\n", child_pids[i], i);
+	    int rs = dup2(pipes[i][0], STDIN_FILENO);
+	    int rs2 = dup2(pipes[i][1], STDOUT_FILENO);
 	    if(rs < 0 || rs2 < 0)
 	    {
 		perror("dup failed\n");
@@ -70,8 +70,35 @@ int main(int argc, char *argv[])
     if(strcmp(mechanism, "sequential") == 0){
 	for(int i = 0; i < worker_num; i++){
 	    waitpid(child_pids[i], NULL, 0);
-	    read(pipes[0], &result, sizeof(double));
+	    read(pipes[i][0], &result, sizeof(double));
 	    sum += result;
+	}
+    }
+
+    if(strcmp(mechanism, "select") == 0){
+	for(int i = 0; i < worker_num; i++){
+	    struct timeval tv;
+	    tv.tv_sec = 5;
+	    tv.tv_usec = 0;
+
+	    fd_set rfds;
+	    int retval;
+	    FD_ZERO(&rfds);
+	    FD_SET(pipes[i][0], &rfds);
+
+	    retval = select(worker_num, &rfds, NULL, NULL, &tv);
+
+	    if(retval == -1)
+		perror("select\n");
+	    else if(retval){
+		printf("select receives\n");
+		if((read(pipes[i][0], &result, sizeof(double))) < 0){
+		    perror("unable to read\n");
+		} else {
+		    sum += result;
+		    printf("current sum is %f\n", sum);
+		}
+	    }
 	}
     }
 
