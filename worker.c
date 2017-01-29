@@ -44,6 +44,7 @@ int main(int argc, char* argv[])
 	printf("x^n / n! : %f\n", result);
     } else {
 	write(STDOUT_FILENO, &result, sizeof(double));
+	close(STDOUT_FILENO);
     }
 
     return 0;

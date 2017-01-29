@@ -1,10 +1,11 @@
 #include <unistd.h>
 #include <stdio.h>
-#include <sys/types.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/select.h>
 #include <string.h>
 
 int main(int argc, char *argv[])
@@ -16,10 +17,10 @@ int main(int argc, char *argv[])
     double sum = 0.0;
     char *mechanism = argv[4];
     int worker_num = atoi(argv[8]);
+    int pipes[worker_num][2];
 
     printf("worker number is %d\n", worker_num);
 
-    int pipes[worker_num][2];
     for(int i = 0; i < worker_num; i++){
 	if(pipe(pipes[i]) == -1){
 	    perror("failed init pipe\n");
@@ -45,6 +46,7 @@ int main(int argc, char *argv[])
 	    printf("my pid is: %d, my worker no is %d\n", child_pids[i], i);
 	    int rs = dup2(pipes[i][0], STDIN_FILENO);
 	    int rs2 = dup2(pipes[i][1], STDOUT_FILENO);
+
 	    if(rs < 0 || rs2 < 0)
 	    {
 		perror("dup failed\n");
@@ -78,26 +80,23 @@ int main(int argc, char *argv[])
     if(strcmp(mechanism, "select") == 0){
 	for(int i = 0; i < worker_num; i++){
 	    struct timeval tv;
-	    tv.tv_sec = 5;
+	    tv.tv_sec = 1;
 	    tv.tv_usec = 0;
 
 	    fd_set rfds;
 	    int retval;
 	    FD_ZERO(&rfds);
 	    FD_SET(pipes[i][0], &rfds);
+	    int MAX_FDN = 12 * 2 + 1 + 1;
 
-	    retval = select(worker_num, &rfds, NULL, NULL, &tv);
-
+	    retval = select(MAX_FDN, &rfds, NULL, NULL, &tv); // 12 fds
 	    if(retval == -1)
 		perror("select\n");
-	    else if(retval){
+	    if(FD_ISSET(pipes[i][0], &rfds)){
 		printf("select receives\n");
-		if((read(pipes[i][0], &result, sizeof(double))) < 0){
-		    perror("unable to read\n");
-		} else {
-		    sum += result;
-		    printf("current sum is %f\n", sum);
-		}
+		read(pipes[i][0], &result, sizeof(double));
+		sum += result;
+		printf("current sum is %f\n", sum);
 	    }
 	}
     }
