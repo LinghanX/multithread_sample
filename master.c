@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/select.h>
 #include <string.h>
+#include <poll.h>
 
 int main(int argc, char *argv[])
 {
@@ -101,7 +102,31 @@ int main(int argc, char *argv[])
 	}
     }
 
-    printf("The mechanism is %s", mechanism);
+    if(strcmp(mechanism, "poll") == 0){
+	printf("poll\n");
+	struct pollfd pfds[worker_num];
+	for(int i = 0; i < worker_num; i++){
+	    pfds[i].fd = pipes[i][0];
+	    pfds[i].events = POLLIN;
+	    pfds[i].revents = 0;
+	}
+
+	int counter = 0;
+	while(counter != 12){
+	    int retval = poll(pfds, 26, 1);
+	    for(int i = 0; i < worker_num; i++){
+		if(pfds[i].revents & POLLIN){
+		    printf("poll receives\n");
+		    read(pfds[i].fd, &result, sizeof(double));
+		    counter++;
+		    sum += result;
+		    printf("current sum is %f\n", sum);
+		}
+	    }
+	}
+    }
+
+    printf("The mechanism is %s\n", mechanism);
     printf("sum is %f\n", sum);
 
     return 0;

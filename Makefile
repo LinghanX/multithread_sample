@@ -9,3 +9,6 @@ sequential: worker master
 
 select: worker master
 	./master --worker_path ./worker --wait_mechanism select -x 2 -n 12
+
+poll: worker master
+	./master --worker_path ./worker --wait_mechanism poll -x 2 -n 12
