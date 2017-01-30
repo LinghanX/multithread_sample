@@ -1,0 +1,10 @@
+Run `make sequential` to monitor workers sequentially
+Run `make select` to monitor workers using `select` mode
+Run `make poll` to monitor workers using `poll` mode
+Run `make epoll` to monitor workers using `epoll` mode
+
+To test individual worker, use the syntax:
+    $ ./worker -x 2 -n 3
+
+If you want to manually initiate master, use the following syntax.
+    $ ./master --worker_path ./worker --wait_mechanism MECHANISM -x 2 -n 12

@@ -14,27 +14,23 @@ int main(int argc, char *argv[])
 {
     
     pid_t cpid;
-    char buffer[256];
-    double result;
     double sum = 0.0;
     char *mechanism = argv[4];
     int worker_num = atoi(argv[8]);
     int pipes[worker_num][2];
-
-    printf("worker number is %d\n", worker_num);
+    int max_fd = 0;
 
     for(int i = 0; i < worker_num; i++){
 	if(pipe(pipes[i]) == -1){
 	    perror("failed init pipe\n");
 	    exit(1);
 	};
+	max_fd = (max_fd > pipes[i][0]) ? max_fd : pipes[i][0];
     }
 
     pid_t child_pids[worker_num];
 
-
     for(int i = 0; i < worker_num; i++){
-	printf("start creating pid %d\n", i);
 	cpid = fork();
 	if(cpid == -1){
 	    perror("fork failed\n");
@@ -45,7 +41,6 @@ int main(int argc, char *argv[])
 	    // child process
 	    child_pids[i] = getpid();
 
-	    printf("my pid is: %d, my worker no is %d\n", child_pids[i], i);
 	    int rs = dup2(pipes[i][0], STDIN_FILENO);
 	    int rs2 = dup2(pipes[i][1], STDOUT_FILENO);
 
@@ -76,8 +71,8 @@ int main(int argc, char *argv[])
 	    double results[3];
 	    waitpid(child_pids[i], NULL, 0);
 	    read(pipes[i][0], results, sizeof(results));
-	    printf("worker %d: %d^%d / %d!\n", (int)results[1], (int)results[0], 
-		    (int)results[1], (int)results[1]); //worker 3: 2^3 / 3! : 1.3333
+	    printf("worker %d: %d^%d / %d!, %f\n", (int)results[1], (int)results[0], 
+		    (int)results[1], (int)results[1], results[2]); //worker 3: 2^3 / 3! : 1.3333
 	    sum += results[2];
 	}
     }
@@ -92,24 +87,21 @@ int main(int argc, char *argv[])
 	    int retval;
 	    FD_ZERO(&rfds);
 	    FD_SET(pipes[i][0], &rfds);
-	    int MAX_FDN = 12 * 2 + 1 + 1;
 
-	    retval = select(MAX_FDN, &rfds, NULL, NULL, &tv); // 12 fds
+	    retval = select(max_fd+1, &rfds, NULL, NULL, &tv); 
 	    if(retval == -1)
 		perror("select\n");
 	    if(FD_ISSET(pipes[i][0], &rfds)){
-		printf("select receives\n");
 		double results[3];
 		read(pipes[i][0], results, sizeof(results));
-		printf("worker %d: %d^%d / %d!\n", (int)results[1], (int)results[0], 
-			(int)results[1], (int)results[1]); //worker 3: 2^3 / 3! : 1.3333
+		printf("worker %d: %d^%d / %d!, %f\n", (int)results[1], (int)results[0], 
+			(int)results[1], (int)results[1], results[2]); //worker 3: 2^3 / 3! : 1.3333
 		sum += results[2];
 	    }
 	}
     }
 
     if(strcmp(mechanism, "poll") == 0){
-	printf("poll\n");
 	struct pollfd pfds[worker_num];
 	for(int i = 0; i < worker_num; i++){
 	    pfds[i].fd = pipes[i][0];
@@ -118,16 +110,17 @@ int main(int argc, char *argv[])
 	}
 
 	int counter = 0;
-	while(counter != 12){
-	    int retval = poll(pfds, 26, 1);
+	while(counter != worker_num){
+	    int MAX_FDN = worker_num * 3;
+	    int retval = poll(pfds, max_fd, 1);
 	    double results[3];
 	    for(int i = 0; i < worker_num; i++){
 		if(pfds[i].revents & POLLIN){
 		    read(pfds[i].fd, &results, sizeof(results));
 		    counter++;
 		    sum += results[2];
-		    printf("worker %d: %d^%d / %d!\n", (int)results[1], (int)results[0], 
-			    (int)results[1], (int)results[1]); //worker 3: 2^3 / 3! : 1.3333
+		    printf("worker %d: %d^%d / %d!, %f\n", (int)results[1], (int)results[0], 
+			    (int)results[1], (int)results[1], results[2]); //worker 3: 2^3 / 3! : 1.3333
 		}
 	    }
 	}
@@ -138,7 +131,7 @@ int main(int argc, char *argv[])
 	if(retfd < 0)
 	    perror("epoll\n");
 
-	struct epoll_event revents[12];
+	struct epoll_event revents[worker_num];
 
 	for(int i = 0; i < worker_num; i++){
 	    revents[i].events = EPOLLIN;
@@ -149,7 +142,7 @@ int main(int argc, char *argv[])
 
 	int counter = 0;
 
-	while(counter != 12){
+	while(counter != worker_num){
 	    double results[3];
 	    int nfds = epoll_wait(retfd, revents, 1, 1);
 	    if(nfds < 0)
@@ -160,11 +153,10 @@ int main(int argc, char *argv[])
 		read(fd, &results, sizeof(results));
 		counter++;
 		sum += results[2];
-		printf("worker %d: %d^%d / %d!\n", (int)results[1], (int)results[0], 
-			(int)results[1], (int)results[1]); //worker 3: 2^3 / 3! : 1.3333
+		printf("worker %d: %d^%d / %d!, %f\n", (int)results[1], (int)results[0], 
+			(int)results[1], (int)results[1], results[2]); //worker 3: 2^3 / 3! : 1.3333
 	    }
 	}
-
 	close(retfd);
     }
 
