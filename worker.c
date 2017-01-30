@@ -1,4 +1,3 @@
-//compile it with -lm flag to receive math library
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -39,11 +38,15 @@ int main(int argc, char* argv[])
     int x = atof(argv[2]);
     int n = atof(argv[4]);
     double result = pow(x, n) / fac(n);
+    double results[3];
+    results[0] = x;
+    results[1] = n;
+    results[2] = result;
 
     if(isatty(STDIN_FILENO)){
 	printf("x^n / n! : %f\n", result);
     } else {
-	write(STDOUT_FILENO, &result, sizeof(double));
+	write(STDOUT_FILENO, results, sizeof(results));
 	close(STDOUT_FILENO);
     }
 

@@ -73,9 +73,12 @@ int main(int argc, char *argv[])
 
     if(strcmp(mechanism, "sequential") == 0){
 	for(int i = 0; i < worker_num; i++){
+	    double results[3];
 	    waitpid(child_pids[i], NULL, 0);
-	    read(pipes[i][0], &result, sizeof(double));
-	    sum += result;
+	    read(pipes[i][0], results, sizeof(results));
+	    printf("worker %d: %d^%d / %d!\n", (int)results[1], (int)results[0], 
+		    (int)results[1], (int)results[1]); //worker 3: 2^3 / 3! : 1.3333
+	    sum += results[2];
 	}
     }
 
@@ -96,9 +99,11 @@ int main(int argc, char *argv[])
 		perror("select\n");
 	    if(FD_ISSET(pipes[i][0], &rfds)){
 		printf("select receives\n");
-		read(pipes[i][0], &result, sizeof(double));
-		sum += result;
-		printf("current sum is %f\n", sum);
+		double results[3];
+		read(pipes[i][0], results, sizeof(results));
+		printf("worker %d: %d^%d / %d!\n", (int)results[1], (int)results[0], 
+			(int)results[1], (int)results[1]); //worker 3: 2^3 / 3! : 1.3333
+		sum += results[2];
 	    }
 	}
     }
@@ -115,13 +120,14 @@ int main(int argc, char *argv[])
 	int counter = 0;
 	while(counter != 12){
 	    int retval = poll(pfds, 26, 1);
+	    double results[3];
 	    for(int i = 0; i < worker_num; i++){
 		if(pfds[i].revents & POLLIN){
-		    printf("poll receives\n");
-		    read(pfds[i].fd, &result, sizeof(double));
+		    read(pfds[i].fd, &results, sizeof(results));
 		    counter++;
-		    sum += result;
-		    printf("current sum is %f\n", sum);
+		    sum += results[2];
+		    printf("worker %d: %d^%d / %d!\n", (int)results[1], (int)results[0], 
+			    (int)results[1], (int)results[1]); //worker 3: 2^3 / 3! : 1.3333
 		}
 	    }
 	}
@@ -144,22 +150,22 @@ int main(int argc, char *argv[])
 	int counter = 0;
 
 	while(counter != 12){
+	    double results[3];
 	    int nfds = epoll_wait(retfd, revents, 1, 1);
 	    if(nfds < 0)
 		perror("epoll events\n");
 
 	    for(int i = 0; i < nfds; i++){
 		int fd = revents[i].data.fd;
-		printf("poll receives\n");
-		read(fd, &result, sizeof(double));
+		read(fd, &results, sizeof(results));
 		counter++;
-		sum += result;
-		printf("current sum is %f\n", sum);
+		sum += results[2];
+		printf("worker %d: %d^%d / %d!\n", (int)results[1], (int)results[0], 
+			(int)results[1], (int)results[1]); //worker 3: 2^3 / 3! : 1.3333
 	    }
 	}
 
 	close(retfd);
-	printf("poll\n");
     }
 
     printf("The mechanism is %s\n", mechanism);
