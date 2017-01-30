@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
 	    perror("failed init pipe\n");
 	    exit(1);
 	};
-	max_fd = (max_fd > pipes[i][0]) ? max_fd : pipes[i][0];
+	max_fd = (max_fd > pipes[i][0])? max_fd : pipes[i][0];
     }
 
     pid_t child_pids[worker_num];
@@ -78,25 +78,35 @@ int main(int argc, char *argv[])
     }
 
     if(strcmp(mechanism, "select") == 0){
-	for(int i = 0; i < worker_num; i++){
-	    struct timeval tv;
-	    tv.tv_sec = 1;
-	    tv.tv_usec = 0;
+	fd_set rfds;
+	int retval;
+	struct timeval tv;
+	tv.tv_sec = 1;
+	tv.tv_usec = 0;
 
-	    fd_set rfds;
-	    int retval;
+	int counter = 0;
+
+	while(counter != worker_num){
 	    FD_ZERO(&rfds);
-	    FD_SET(pipes[i][0], &rfds);
+	    for(int i = 0; i < worker_num; i++){
+		FD_SET(pipes[i][0], &rfds);
+		max_fd = (max_fd > pipes[i][0])? max_fd : pipes[i][0];
+	    }
+	    retval = select(max_fd + 1, &rfds, NULL, NULL, &tv); 
 
-	    retval = select(max_fd+1, &rfds, NULL, NULL, &tv); 
-	    if(retval == -1)
+	    if(retval < 0){
 		perror("select\n");
-	    if(FD_ISSET(pipes[i][0], &rfds)){
-		double results[3];
-		read(pipes[i][0], results, sizeof(results));
-		printf("worker %d: %d^%d / %d!, %f\n", (int)results[1], (int)results[0], 
-			(int)results[1], (int)results[1], results[2]); //worker 3: 2^3 / 3! : 1.3333
-		sum += results[2];
+	    } else if(retval > 0){
+		for(int i = 0; i < worker_num; i++){
+		    if(FD_ISSET(pipes[i][0], &rfds)){
+			double results[3];
+			read(pipes[i][0], results, sizeof(results));
+			printf("worker %d: %d^%d / %d!, %f\n", (int)results[1], (int)results[0], 
+				(int)results[1], (int)results[1], results[2]); //worker 3: 2^3 / 3! : 1.3333
+			sum += results[2];
+			counter++;
+		    }
+		}
 	    }
 	}
     }
