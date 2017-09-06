@@ -8,8 +8,9 @@ The implementation present 4 different multithread collaboration scheme:
 * Poll
 * Epoll 
 
-## To run the example, make sure you're working under a Linux distro. (should 
-also work in Unix machines if you take out the 'Epoll' part).
+## To run the example, make sure you're working under a Linux distro. 
+
+(should also work in Unix machines if you take out the 'Epoll' part).
 
 Run `make sequential` to monitor workers sequentially
 Run `make select` to monitor workers using `select` mode
